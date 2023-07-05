@@ -25,8 +25,8 @@ Vagrant.configure("2") do |config|
         sudo apt-get update -y
         sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
         sudo usermod -a -G docker vagrant
-        docker run -it -d -p 8080:80 --name nginx-server nginx
-        docker cp /vagrant/s nginx-server:/etc/nginx/nginx.conf/default.conf
+        docker run -it -d -p 8080:80 --name web-server nginx
+        docker cp /vagrant/sample2 web-server:/usr/nginx/share/nginx/html
       SCRIPT
     end
   end
