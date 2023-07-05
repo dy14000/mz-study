@@ -11,6 +11,7 @@ Vagrant.configure("2") do |config|
         vb.memory = 8192
       end
       ubuntu.vm.network "forwarded_port", guest: 8080, host: 80
+      ubuntu.vm.network "forwarded_port", guest: 8081, host: 81
       ubuntu.vm.network "private_network", ip: "192.168.33.10"
       ubuntu.vm.provision "shell", inline: <<-SCRIPT
         sudo apt-get update -y
