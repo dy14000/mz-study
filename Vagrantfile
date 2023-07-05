@@ -28,7 +28,7 @@ Vagrant.configure("2") do |config|
         sudo usermod -a -G docker vagrant
         docker run -it -d -p 8080:80 --name web-server nginx
         docker run -it -d -p 8081:80 --name web-server1 httpd
-        docker cp /vagrant/sample2 web-server:/usr/nginx/share/nginx/html
+        docker cp /vagrant/sample2 web-server:/usr/nginx/share/nginx/html/
         docker cp /vagrant/sample2 web-server:/usr/local/apache2/
 
       SCRIPT
