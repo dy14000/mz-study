@@ -11,7 +11,6 @@ Vagrant.configure("2") do |config|
         vb.memory = 8192
       end
       ubuntu.vm.network "forwarded_port", guest: 8080, host: 80
-      ubuntu.vm.network "forwarded_port", guest: 8081, host: 81
       ubuntu.vm.network "private_network", ip: "192.168.33.10"
       ubuntu.vm.provision "shell", inline: <<-SCRIPT
         sudo apt-get update -y
@@ -26,12 +25,10 @@ Vagrant.configure("2") do |config|
         sudo apt-get update -y
         sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
         sudo usermod -a -G docker vagrant
-        docker run -it -d -p 8080:80 --name web-server nginx
-        docker run -it -d -p 8081:80 --name web-server1 httpd
-        docker cp /vagrant/sample2 web-server:/usr/nginx/share/nginx/html/
-        docker cp /vagrant/sample2 web-server:/usr/local/apache2/
-
+        docker longin -u dy14000 --password-stdin < /vagrant/env/token
+        docker volume create --label web=nginx --label creater=dy nginx_vol
+        sudo cp -r /vagrant/sample2/* /var/lib/docker/volumes/nginx_vol/_data
+        docker run -it -d -p 8080:80 -v nginx_vol:/usr/share/nginx/html --name nginx-server nginx
       SCRIPT
     end
   end
-  
