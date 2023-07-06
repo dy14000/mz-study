@@ -28,9 +28,9 @@ Vagrant.configure("2") do |config|
         sudo usermod -a -G docker vagrant
         docker longin -u dy14000 --password-stdin < /vagrant/env/token
         docker volume create --label web=nginx --label creater=dy nginx_vol
-        sudo cp -r /vagrant/sample2/* /var/lib/docker/volumes/nginx_vol/_data
-        sudo cp -r /vagrant/sample2/* /
-        docker run -it -d -p 8080:80 -v nginx_vol:/usr/share/nginx/html --name nginx-server nginx
+        sudo cp -r /vagrant/sample2/* /var/lib/docker/volumes/web_vol/_data
+        docker run -it -d -p 8080:80 -v web_vol:/usr/share/nginx/html --name nginx-server nginx
+        docker run -it -d -p 8080:81 -v web_vol://usr/local/apache2/htdocs --name apache-sever httpd
       SCRIPT
     end
   end
