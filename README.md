@@ -93,8 +93,3 @@ vagrant@mz-server:~$ docker inspect --format="{{range .Mounts}}{{.Source}}{{.Des
 /var/lib/docker/volumes/vol1/_data/mnt
 /var/lib/docker/volumes/vol2/_data/storage
  > 줄바꿈 추가
-
-### Doker token 등록 ###
- 현재 README.md 파일이 있는 위치 env 설치 그 안에 dokerc_token
- env/docker_token 파일 생성
- docker hub 사이트에서 발급 받은 token 등록
