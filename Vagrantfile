@@ -29,10 +29,6 @@ Vagrant.configure("2") do |config|
       vb.memory = 8192
     end
 
-
-
-
-
     ubuntu.vm.network "forwarded_port", guest: 8080, host: 80 
     ubuntu.vm.network "private_network", ip: "192.168.33.200"
     ubuntu.vm.provision "shell", inline: <<-SCRIPT
@@ -49,7 +45,6 @@ Vagrant.configure("2") do |config|
       sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
       sudo usermod -a -G docker vagrant
       docker login -u dy14000 --password-stdin < /vagrant/env/docker_token
-      docker volume create 
     SCRIPT
   end
 end
