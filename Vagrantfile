@@ -15,7 +15,7 @@ Vagrant.configure("2") do |config|
      sudo useradd -m -s /bin/bash sshfs -d name /home/sshfs
      echo sshfs:qwerasdfzxcv | sudo chpasswd
      git clone https://github.com/dy14000/static_web_template.git
-     sudo cp home/static_web_temlpate/* /home/sshfs
+     sudo cp home/static_web_temlpate/* /home/sshfs1
 
 
     SCRIPT
