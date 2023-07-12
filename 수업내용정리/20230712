@@ -44,3 +44,14 @@ CMD /bin/bash > 하나만 가능함
 도커파일 수정하고 이미지 빌드하고, 이미지 다운받고 컨테이너 생성하면 됨!
 
 
+FROM ubuntu:focal
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+     && apt-get install -y nginx git
+RUN git clone https://github.com/dy14000/static_web_template.git
+RUN cp -r static_web_template/sample2/* /var/www/html/
+CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 80
+
+nginx 웹서비스를 이용해서, 컨데이너에 이미지 다운후 정적페이지 해당 컨데이너 ip로 열기
+ 
