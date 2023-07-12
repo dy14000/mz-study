@@ -1,0 +1,163 @@
+Dockeer network
+컨테이너 간의 네트워크 연결
+
+hook 메커니즘은 Linux Netfilter에서 패킷 처리 중에 사용자 정의 코드를 삽입할 수 있는 인터페이스를 제공하는 기능
+
+#Netfilter 구성도
+외부로 나갈것, 들어올것만 생각하면 되지만, 리눅스는 local network / 
+input 내부 forward 외부로 보낼지에 
+
+#IPtable
+table : 동작을 수행하는 파일 input table등등
+체인 안에는 여러 테이블로 구성됨 정책들의 연속으로 되어있음
+시스코 라우팅에서 ALC 정책대로 체크해서 permit deny이였던것처럼.
+매치가 되는 룰이 있으면 정책을 시행하고 정책에 맞으면 그냥 넘어감
+
+preruiting 체인 안에 raw, mangle, nat 테이블이 있는것 > 
+
+rules : packet을 어떻게 처리할지
+target: packet을 보내질 위치
+tragets : packet에 대한 처리 결정, drop하거나 reject등 거부하는 경우는 에러를 송신자에게 반환까지
+
+#Docker network
+-p 붙이면 외부 서비스에서 사용할수 있는 포트 노출시킴
+
+MASQUERADE : nat(다이나믹) 기능이라고 생각하면 됨
+DNAT : 목적지 주소에 대해서 NAT 한다
+
+-P host:guest -p 8080:80 고정포트 지정도 가능함
+
+#IP Address
+명령어 docker network connect 사용
+실행중인 컨테이너도 연결 가능함
+
+vagrant@sshfs-server:~$ sudo docker inspect bridge = docker network inspect bridge(별칭)
+[
+    {
+        "Name": "bridge",
+        "Id": "f5d6fcf0ade7fffbb02a1e251db7608b29dbeddd6342892e2ee2c18276e6b67b",
+        "Created": "2023-07-10T01:16:29.770045517Z",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+                {
+                    "Subnet": "172.17.0.0/16",
+                    "Gateway": "172.17.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {
+            "5a0e8ca44175af2510c6f65af7fc2f9d1757db842eaed67b9ca437d908aac170": {
+                "Name": "web1",
+                "EndpointID": "803ba9b5b7be5abffe6588a575464c15bb63245371d43fded5f534ea5ea157f9",
+                "MacAddress": "02:42:ac:11:00:02",
+                "IPv4Address": "172.17.0.2/16",
+                "IPv6Address": ""            }
+        },
+        "Options": {
+            "com.docker.network.bridge.default_bridge": "true",
+            "com.docker.network.bridge.enable_icc": "true",
+            "com.docker.network.bridge.enable_ip_masquerade": "true",
+            "com.docker.network.bridge.host_binding_ipv4": "0.0.0.0",
+            "com.docker.network.bridge.name": "docker0",
+            "com.docker.network.driver.mtu": "1500"
+        },
+        "Labels": {}
+    }
+]
+
+vagrant@sshfs-server:~$ docker network ls
+NETWORK ID     NAME      DRIVER    SCOPE
+f5d6fcf0ade7   bridge    bridge    local > 초기설치하면
+55ac3047452f   host      host      local 
+a0cbb2a04c61   none      null      local
+
+#hostname
+-h --name name 지정하면됨 
+
+docker host의 dns 서버 및 컨테이너 dns 정보 확인
+root@container:~# systemd-resolve --status | grep -A 10 ens33
+root@2f59eea3b545:/# cat /etc/resolv.conf
+nameserver 127.0.0.53 > 기본잡혀있는것
+options edns0 trust-ad
+
+#DNS service
+man resolv.conf 참고
+
+#Network drivers
+기본이 bridge: docker default / 사용자 생성 두가지가 있음 동작하는게 다름 : 기본으로 생성됨
+동일한 host에서 다른 container, container 통신 필요할때 사용
+host: 호스트 네트워킹 직접 사용
+overlay: 동작하고 있는 데몬간에 연결해서 쓸때, 다른 호스트간에도 통신할수 있게 만듦
+ipvaln : L2 ip 주소 기반
+macvaln : mac add
+none: 격리된 상태에서 동작
+
+
+#docker network drivers bridge 생성
+
+vagrant@sshfs-server:~$ docker network create --driver bridge --subnet 172.100.0.0/16 --gateway 172.100.255.254 br-net2
+vagrant@sshfs-server:~$ docker network inspect br-net2
+[
+    {
+        "Name": "br-net2",
+        "Id": "e216911bac96fa32e0bd74c7cc310b03f30c2d116bffe5ef9dab409c492eb5eb",
+        "Created": "2023-07-10T02:22:58.143730367Z",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.100.0.0/16",
+                    "Gateway": "172.100.255.254"
+  #지정한 subnet gateway로 만들어줌!!!
+ 
+ vagrant@sshfs-server:~$ ip addr
+ 17: br-e216911bac96: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
+    link/ether 02:42:72:ea:71:49 brd ff:ff:ff:ff:ff:ff
+    inet 172.100.255.254/16 brd 172.100.255.255 scope global br-e216911bac96
+       valid_lft forever preferred_lft forever
+
+ vagrant@sshfs-server:~$ docker network inspect br-net
+
+ vagrant@sshfs-server:~$ docker run -d -p 80:80 --name nginx_porxy  nginx
+ vagrant@sshfs-server:~$ docker run -d  --name web-server1 httpd
+
+ docker -run -d -p 80:80 --network ....
+                     curl http://localhost
+                         > curl http://172.17.0.2:80
+ >> container +process 
+
+docker cp host-web2:/usr/local/apache2/conf/httpd.conf /home/vagrant/httpd.conf
+Listen 192.168.33.250:80 원래 80 포트만 지정인데 ip 주소 지정하면 ip 주소 하나랑만 연결됨!
+
+#Load balancer (부화분산)
+ http:// 192.168.33.250 > 가상머신 enp0s8 (int)로 전달되게끔
+ enp0s8 연결된 container 80포트 연결 
+ container nginx 부화분산 기능 활성화
+ container 내부에 br-net 연결되서, 
+ br-interface (bridge) : 172.30.0.0/16
+ apache(172.30.0.2) , nginx(172.30.0.3)로 구분해서 
+
+
+vagrant@sshfs-server:~$ docker network create --driver bridge --subnet 172.30.0.0/16 --gateway 172.30.0.1 br-interface
+vagrant@sshfs-server:~$ docker network inspect br-interface 
+vagrant@sshfs-server:~$ docker run -d -p 80:80 --network br-interface --name web1 nginx
+vagrant@sshfs-server:~$ docker run -d  --network br-interface --name web2 httpd
+
+docker container image 생성 작업(다음시간!) vagrantfile이랑 비슷
+docker 파일로 실행되는건 아니고, 이미지만 생성

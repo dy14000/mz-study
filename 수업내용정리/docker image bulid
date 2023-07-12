@@ -1,0 +1,56 @@
+20230711
+
+docker push dy14000/dy : tagname
+            계정    이미지명   버전
+
+ex) docker pull ubuntu:latest
+
+# docker repo 생성
+$ docker push dy14000/apache2:vl.0
+$ docker push dy14000/apache2:vl.0
+
+# docker repo에서 image 내려받기
+$ docker push dy14000/apache2:vl.0 먼저 이미지 다운받고
+$ docker tag dy14000/apache2:vl.0 dy14000/apache2:latest 태그 변경(vl. > latest)
+$ docker push dy14000/apache2:latest repo에서 보내고 이미지 삭제후
+$ docker pull dy14000/apache2 다시 내려 받음
+
+# dockerhub 안쓰고 개인 repo
+$ docker pull registry 도커에서 제공하는 허브
+$ docker run -d -p 5000:5000 --restart=always --name image_repo registry
+$ vi /etc/docker/daemon.json
+{
+        "insecure-registry": ["http://localhost:5000"]
+} 파일 만들어서 내용 기입 후 시스템 재시작
+$ sudo systemctl restart docker
+$ docker tag dy14000/apache2:latest localhost:5000/apache2:latest
+$ docker push localhost:5000/apache2:latest
+
+(+)domain 형식으로
+$ cat /etc/docker/daemon.json
+{
+        "insecure-registry": ["http://localhost:5000", "http://repo.docker.com:5000]
+}
+
+$ sudo vi /etc/hosts
+$ cat vi /etc/hosts
+cat: vi: No such file or directory
+127.0.0.1       localhost
+192.168.33.100 repo.docker.com > 추가하면 됨 windows에서도
+$ ping repo.docker.com
+PING repo.docker.com (192.168.33.100) 56(84) bytes of data.
+
+
+# 보안 인증서 만드는 방법
+ 1) 개인 인증서(local)
+ sudo openssl req -newkey rsa:4096 -sha256 -keyout mydomain.key  -addext "subjectAltName = DNS:repo.docker.com" -x509 -days 365 -out mydomain .crt
+  발급 받은 후 인증서를 위치에 이동, 복사해야함
+  
+
+
+
+
+
+
+
+ 2) 외부에서까지 (공공네트워크까지)
