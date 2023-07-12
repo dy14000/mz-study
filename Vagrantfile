@@ -9,11 +9,22 @@ echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docke
 sudo apt-get update -y
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo usermod -a -G docker vagrant
-docker login -u abhyuni --password-stdin < /vagrant/env/docker_token
+docker login -u dy14000 --password-stdin < /vagrant/env/docker_token
 SCRIPT
 
 Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/focal64"
+  
+  config.vm.define "dock2" do |dock2|
+    dock2.vm.hostname = "docker-repo"
+    dock2.vm.provider "virtualbox" do |vb|
+      vb.name = "docker-repo"
+      vb.cpus = 2
+      vb.memory = 4096
+    end
+    dock2.vm.network "private_network", ip: "192.168.33.200"
+    dock2.vm.provision "shell", inline: $script
+  end
 
   config.vm.define "dock1" do |dock1|
     dock1.vm.hostname = "docker-server1"
@@ -24,17 +35,5 @@ Vagrant.configure("2") do |config|
     end
     dock1.vm.network "private_network", ip: "192.168.33.100"
     dock1.vm.provision "shell", inline: $script
-  end
-
-  config.vm.define "dock2" do |dock2|
-    dock2.vm.hostname = "docker-repo"
-    dock2.vm.provider "virtualbox" do |vb|
-      vb.name = "docker-repo"
-      vb.cpus = 2
-      vb.memory = 4096
-    end
-    dock2.vm.network "forwarded_port", guest: 80, host: 80
-    dock2.vm.network "private_network", ip: "192.168.33.200"
-    dock2.vm.provision "shell", inline: $script
   end
 end
