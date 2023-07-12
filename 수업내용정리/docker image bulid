@@ -46,7 +46,7 @@ PING repo.docker.com (192.168.33.100) 56(84) bytes of data.
  sudo openssl req -newkey rsa:4096 -sha256 -keyout mydomain.key  -addext "subjectAltName = DNS:repo.docker.com" -x509 -days 365 -out mydomain .crt
   발급 받은 후 인증서를 위치에 이동, 복사해야함
   
-
+ 발급받은 인정서 name.key, .name.crt 두개를  scp 명령어 사용해서 이동시키면 됨 기존 777에서 sudo chmod 해서 권한 600으로 변경후 넘겨주기~
 
 
 
