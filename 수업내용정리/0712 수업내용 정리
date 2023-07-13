@@ -1,0 +1,56 @@
+docker pull registrycvag
+
+$ sudo openssl req -newkey rsa:4096 -nodes -sha256 -keyout dock.repo.co.kr.key -addext "subjectAltName = DNS:doke.repo.co.kr" -x509 -days 365 -out dock.repo.co.kr.crt
+
+Common Name (e.g. server FQDN or YOUR name) []:dock.repo.co.kr > DNS
+
+
+
+docker run -d --restart=always --name image_repo \
+-v /home/vagrant/certs:/certs -e REGISTRY_HTTP_ADDR=0.0.0.0:443 \
+-e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/dock.repo.co.kr.crt \
+-e REGISTRY_HTTP_TLS_KEY=/certs/dock.repo.co.kr.key -p 443:443 registry
+
+
+RUN mkdir hello # 쉘방식 /bin.sh $PATH= /bin:/usr 
+RUN ["mkdir", "hi"] # exec 는 환경변수 지정한게 없으면 문제 생길수도!
+
+RUN["/bin/bash" ,"-c" "mkdir -p /hi/a/b/c ]
+
+FROM ubuntu:latest
+
+RUN mkdir hello
+RUN ["/bin/bash" ,"-c", "mkdir -p /hi/a/b/c" ]
+
+#해당 디렉토리에 파일 복사
+COPY origin_file /hello
+
+#환경변수 지정
+ENV VAR1=VAR1
+ENV VAR2=VAR2 VAR3=VAR3
+
+RUN mkdir newfolder1
+
+#작업 영역 지정 지정한 환경안에서 시작함
+WORKDIR /hello
+RUN mkdir newfolder2
+
+RUN useradd -m -s /bin/bash mzuser
+
+#작업하는 사용자 변경
+USER mzuser
+CMD /bin/bash > 하나만 가능함
+
+도커파일 수정하고 이미지 빌드하고, 이미지 다운받고 컨테이너 생성하면 됨!
+
+
+FROM ubuntu:focal
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+     && apt-get install -y nginx git
+RUN git clone https://github.com/dy14000/static_web_template.git
+RUN cp -r static_web_template/sample2/* /var/www/html/
+CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 80
+
+nginx 웹서비스를 이용해서, 컨데이너에 이미지 다운후 정적페이지 해당 컨데이너 ip로 열기
