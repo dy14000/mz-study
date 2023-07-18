@@ -1,0 +1,183 @@
+# Masquerade (nat)
+nat가 설정되어있는 int  
+
+*ip table 명령어 잘 확인하기
+chain에 룰을 추가해야함
+INPUT OUTPUT... 등
+nat 테이블보는 곳에 체인 추가하면됨 
+DNAT 목적지 주소 
+SNAT 출발지 주소바꿔줌
+ipnut은 프로세스 연결하는거라 포스터라우팅으로
+" 대문자로 "
+
+$ sudo iptables -t nat -A POSTROUTING -o enp0s8 -s 192.168.0.0/24
+                                         > 조건
+  매치가 되야 변환이 가능함 , ACL이랑 유사
+  목적지도 지정가능함 -d 옵션
+
+$ sudo iptables -t nat -A POSTROUTING -o enp0s8 -s 192.168.0.0/24 -j MASQUERADE
+$ sudo iptables -t nat -I POSTROUTING -s 192.168.0.0/24 -o enp0s8 -j LOG --log-prefix='MSQ-NAT: '
+> log 기록 남기는것 table로 확인 가능함
+
+$ sudo iptables -t nat -L POSTROUTING -n --line-number
+Chain POSTROUTING (policy ACCEPT)
+num  target     prot opt source               destination
+1    LOG        all  --  192.168.0.0/24       0.0.0.0/0            LOG flags 0 level 4 prefix "MSQ-NAT: "
+2    MASQUERADE  all  --  192.168.0.0/24       0.0.0.0/0
+
+$ ls -la /var/log/kern.log 여기에 로그 기록됨(우분투 환경에서)
+$ sudo tail -f /var/log/kern.log
+Jul 18 00:12:35 host1 kernel: [  626.649761] audit: type=1400 audit(1689639155.566:31): apparmor="STATUS" operation="profile_load" profile="unconfined" name="/snap/snapd/19457/usr/lib/snapd/snap-confine//mount-namespace-capture-helper" pid=2193 comm="apparmor_parser"
+Jul 18 00:12:35 host1 kernel: [  626.728340] audit: type=1400 audit(1689639155.634:32): apparmor="STATUS" operation="profile_replace" info="same as current profile, skipping" profile="unconfined" name="snap.lxd.activate" pid=2196 comm="apparmor_parser"
+실시간으로 로그가 기록되는걸 확인해볼수 있음
+
+$ sudo ip route add 8.8.8.8 via 192.168.100.1 dev enp0s8 src 192.168.0.2
+ping 8.8.8.8하면 라우터에 매칭되는 경로, 192.168.100.1 gateway를 경유
+device는 enp0s8로 연결되어 있음 
+192.168.0.2를 출발지로 지정(가지고 있는 ip주소로 출발지를 설정해놔야함)
+
+$ sudo iptable -t nat -L -n -v 자세히 테이블 볼수 있음
+
+# HOST2 설정
+$ sudo ip route del default via 10.0.2.2 dev enp0s3
+$ sudo ip route add default via 192.168.0.2 dev enp0s8
+기존 지우고, host1번 통해서 외부와 연결될수 있도록 지정
+ping 8.8.8.8 하면 연결안됨 > 라우팅 활성화 안해둠(host1 에서)
+
+$ ip route get 8.8.8.8
+
+host1에서 설정해야함
+vagrant@host1:~$ sudo vi /etc/sysctl.conf
+# Uncomment the next line to enable packet forwarding for IPv4
+net.ipv4.ip_forward=1
+vagrant@host1:~$ sudo sysctl -p
+net.ipv4.ip_forward = 1 (주석처리된거 지우면 됨!)
+라우터가 아니기 때문에 따로 옵션 지정해야지, 라우팅 가능함
+table보면 
+
+# filtering
+www.naver.com 사이트로 접근을  차단하는 필터링 규칙 작성
+h2 차단, h3은 허용하는걸로 실습
+failter table을 이용해서 차단
+
+라우터 작업해서 필터하는것 : FORWARD 
+host가 트래픽 왔을때 외부로 보내기 전에 필터링
+> 다른 디바이스끼리 연결 설정할때
+
+
+라우팅해서 내부에서 차단할때 INPUT
+OUTPUT도 내부 자체적으로 트래픽이 나갈때 들어올때 차단시킴
+
+vagrant@host1:~$ sudo iptables -t filter -A FORWARD -s 192.168.0.0/24 -j LOG --log-prefix='FILTER: '
+LOG는 모든 정책중에 제일 앞에 올 수 있도록 
+vagrant@host1:~$ sudo iptables -t filter -L FORWARD -n -v
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+    0     0 LOG        all  --  *      *       192.168.0.0/24       0.0.0.0/0            LOG flags 0 level 4 prefix "FILTER: "
+
+vagrant@host2:~$ curl https://www.naver.com | head -2
+Jul 18 02:11:44 host1 kernel: [ 7774.237793] FILTER: IN=enp0s9 OUT=enp0s8 MAC=08:00:27:71:16:a9:08:00:27:63:44:0c:08:00 SRC=192.168.0.3 DST=223.130.200.104 LEN=40 TOS=0x00 PREC=0x00 TTL=63 ID=0 DF PROTO=TCP SPT=60596 DPT=443 WINDOW=0 RES=0x00 RST URGP=0
+domain으로는 막기 힘들고, ip주소로 막아야함
+막을수 있긴 하나 전용장비가 필요함
+
+vagrant@host1:~$ sudo iptables -t filter -A FORWARD -s 192.168.0.3 -d 222.130.195.200 -j DROP
+vagrant@host1:~$ sudo iptables -t filter -A FORWARD -s 192.168.0.3 -d 222.130.200.104 -j DROP
+vagrant@host1:~$ sudo iptables -t filter -L FORWARD -n -v
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+   36  2662 LOG        all  --  *      *       192.168.0.0/24       0.0.0.0/0            LOG flags 0 level 4 prefix "FILTER: "
+    0     0 DROP       all  --  *      *       192.168.0.3          222.130.195.200
+    0     0 DROP       all  --  *      *       192.168.0.3          222.130.200.104
+
+vagrant@host2:~$ curl https://www.naver.com | head -1 
+sudo tail -f /var/log/kern.log 테이블에서 naver.com ip주소
+확인해서 다 먹으면 됨
+
+vagrant@host2:~$ curl https://www.naver.com | head -1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+막힌거 확인
+
+vagrant@host1:~$ sudo resolvectl flush-caches 캐시 삭제하면, 다시 됨
+
+vagrant@host1:~$ nslookup naver.com > 확인가능함
+Server:         127.0.0.53
+Address:        127.0.0.53#53
+Non-authoritative answer:
+Name:   naver.com
+Address: 223.130.200.104
+Name:   naver.com
+Address: 223.130.200.107
+Name:   naver.com
+Address: 223.130.195.95
+Name:   naver.com
+Address: 223.130.195.200
+
+vagrant@host1:~$ sudo iptables -t filter -L FORWARD -n -v
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+  180 12340 LOG        all  --  *      *       192.168.0.0/24       0.0.0.0/0            LOG flags 0 level 4 prefix "FILTER: "
+    0     0 DROP       all  --  *      *       192.168.0.3          222.130.195.200
+    0     0 DROP       all  --  *      *       192.168.0.3          222.130.200.104
+   12   720 DROP       all  --  *      *       192.168.0.3          223.130.195.95
+    0     0 DROP       all  --  *      *       192.168.0.3          223.130.195.200
+
+
+sudo iptable -t filter -D FORWARD 해당 번호 > 지워짐
+
+# SNAT
+출발지 주소 변환
+vagrant@host2:~$ sudo iptables -t nat -A POSTROUTING -s 192.168.0.3 -d 223.130.0.0/16 -j SNAT --to-source 192.168.0.100
+vagrant@host2:~$ sudo iptables -t nat -I POSTROUTING -s 192.168.0.3 -d 223.130.0.0/16 -j LOG --log-prefix='SNAT= '
+Jul 18 05:24:52 host1 kernel: [19362.255581] MSQ-NAT: IN= OUT=enp0s8 SRC=192.168.0.100 DST=223.130.195.95 LEN=60 TOS=0x00 PREC=0x00 TTL=63 ID=57491 DF PROTO=TCP SPT=54210 DPT=443 WINDOW=64240 RES=0x00 SYN URGP=0
+vagrant@host2:~$ sudo vi /etc/netplan/50-vagrant.yaml
+> 인터페이스안에 지정이 안되서 100으로 요청한 응답 무시함 설정필요!
+sudo netplan apply 하고 다시 ip route 봐서 경로 다시 설정해야함
+
+vagrant@host2:~$ sudo iptables -t nat -L POSTROUTING -n -v
+Chain POSTROUTING (policy ACCEPT 15 packets, 1333 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+    4   240 LOG        all  --  *      *       192.168.0.3          223.130.0.0/16       LOG flags 0 level 4 prefix "SNAT= "
+    4   240 SNAT       all  --  *      *       192.168.0.3          223.130.0.0/16       to:192.168.0.100
+
+host2에서는 변환되기 전에 log 기록되서, 
+Jul 18 05:40:32 host2 kernel: [20269.745812] SNAT= IN= OUT=enp0s8 SRC=192.168.0.3 DST=223.130.195.95 LEN=60 TOS=0x00 PREC=0x00 TTL=64 ID=30352 DF PROTO=TCP SPT=38236 DPT=443 WINDOW=64240 RES=0x00 SYN URGP
+출발지가 기존 192.168.0.3이고
+
+host1에서는 변환되서 나오기 때문에 
+192.168.0.100으로 log 기록됨
+
+
+# 다음시간
+DNAT 외부(공인) IP를 사설 IP로 변환해서, 외부 > 내부로 접속가능하도록 설정
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
