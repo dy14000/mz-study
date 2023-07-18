@@ -1,0 +1,114 @@
+https://www.yamllint.com/ 사이트 참고
+
+ubuntu 사용시 
+hosts . resolv.conf, interface 3개 위주로
+
+hosts : local만 가능 ip domain
+resolv.conf: 링크만 걸려있는 파일 원본 수정해야함
+DNS 서버주소 설정 파일
+>일시적이며, 재시작되면 다시 돌아오게 됨
+
+interface :yaml 파일 주로 사용함
+
+- /etc/resolv.conf /run/systemd/resolve/stub-resolv.conf의 심볼릭이기 떄문에 , 임시변경만됨 
+
+nat interface
+
+vagrant@dy14000:~$ sudo resolvectl dns enp0s8 8.8.8.8
+vagrant@dy14000:~$ sudo resolvectl dns
+Global:
+Link 4 (docker0):
+Link 3 (enp0s8): 8.8.8.8
+Link 2 (enp0s3): 10.0.2.3
+
+vagrant@dy14000:~$ sudo resolvectl dns enp0s8 ''
+vagrant@dy14000:~$ sudo resolvectl dns
+Global:
+Link 4 (docker0):
+Link 3 (enp0s8):
+Link 2 (enp0s3): 10.0.2.3
+
+bind 빼면 hosts 파일 먼저 질의
+보통은 hosts 먼저 질의함
+
+
+# /etc/network/interfaces
+auto lo 루프백 인터페이스 지정하는것
+
+# /etc/netplan/*.yaml
+어떤 파일이 있어도 상관없음 yaml이면 됨
+
+# ip route 명령어
+
+# Network tools
+
+vagrant@docker-repo:~$ sudo netstat -nap | head -10
+> ss -tuna 랑 비슷하다고 보면 됨
+tcp6       0      0 :::22                   :::*                    LISTEN      699/sshd: /usr/sbin
+> vagrant 사용한거
+
+# net stat / 관리자 권한이 필요한 작업임
+
+-nap 옵션 제일 많이 봄
+프로세스가 문제가 생겨서 꺼야한다면, 서비스기 때문에 서비스가 안꺼질때, 강제로 kill pid 명령어 이용해서 끄면 됨
+
+windows -nao 옵션임
+
+netstat로 확인 가능한 소켓 연결상태 대부분 TCP 
+LISTEN, ESTABLISHED, CLOSED, CLOSE_WAIT, TIME_WAIT 기본!
+> 자주 확인 해볼 수 있는 상태
+
+TCP 3 Way-Handshake 에서 상태 변화가 일어나는 것
+서버는 LISTEN 상태에 있어야함 거기에 연결요청을 보내고 
+ESTABLISHED로 상태 변화
+LISTEN 에서 상태 변화가 되는게 아니라 새로 생김
+
+docker ubuntu image에는 ping 없음
+apt install iputils-ping 설치하면 됨
+
+-c 옵션 자주 씀
+
+vagrant@docker-repo:~$ dig @8.8.8.8 naver.com
+;; Query time: 44 msec
+;; SERVER: 8.8.8.8#53(8.8.8.8)
+;; WHEN: Mon Jul 17 04:09:07 UTC 2023
+;; MSG SIZE  rcvd: 102
+
+서버를 지정해서 질의가 가능함!
+Host : local host
+VM :virtual host
+Net/LAN : External network
+host only = private network
+
+ngrok 프로그램 외부네트워크에서 내부(사설) 
+연결하고자 하는 디바이스에 gnrok 설치하면서 터널링 프로그램!
+
+네트워크구성 : 외부 참고해서 동일하게 구성해볼수있음
+
+
+sudo ip route add default via 10.0.2.2 dev enp0s3
+외부 통신을 위해서 디폴트값 설정해주면 됨 라우터!
+vagrant 는 거의 대부분 위 주소로 고정되어 있음
+
+sudo ip route del 하면 삭제 가능!
+
+# iptables ,netfilter 
+라우터 장비 없이 리눅스 자체적으로 제공
+라우팅을 할 수 있게 구성 가능함~
+운영체제에서 라우팅이 가능함 ubuntu 내에서 
+container간의 등등....
+대부분 유틸들이 자동으로 테이블세팅이 되어있긴 함
+
+# chain 
+ 패킷이 어떤 경로에 따라 처리되어야하는지 정의한 일의 규칙
+
+
+
+
+
+
+
+
+
+
+
