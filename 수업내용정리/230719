@@ -1,0 +1,74 @@
+# DNAT
+sudo iptables -t nat -A PREROUTING -s -d -j DNAT --to-destination=
+
+특정 포트만 변환 시키는 것
+sudo iptables -t nat -A PREROUTING -s -d -dport 00.00 --to-destination=ip주소:포트번호
+
+외부랑 통신할때, 10.0.0.2 enps03은 쓰지 않을수 있도록
+192.168.100.0 말고 gateway 주소 하나 더 받을려면 
+/etc/netplan/50-vagrant.yaml 
+DHCP4:yes
+
+
+# 실습
+1) web-server1,2 구성
+2) gateway 구성
+3) web-server1,2는 gateway를 통해서 외부로 연결되도록 (public - DHCP 이용해서 자동 IP 할당되도록)
+
+vagrant@gateway:~$ ip route
+default via 192.168.100.1 dev enp0s8 proto dhcp src 192.168.101.23 metric 100 
+10.0.2.0/24 dev enp0s3 proto kernel scope link src 10.0.2.15 
+10.0.2.2 dev enp0s3 proto dhcp scope link src 10.0.2.15 metric 100 
+192.168.33.0/24 dev enp0s9 proto kernel scope link src 192.168.33.254 
+192.168.100.0/23 dev enp0s8 proto kernel scope link src 192.168.101.23 
+192.168.100.1 dev enp0s8 proto dhcp scope link src 192.168.101.23 metric 100 
+
+>> gateway에서 192.168.101.23으로 통신 연결하면 DNAT 이용해서 192.168.33.10 or 192.168.33.20 서버랑 연결
+vagrant@gateway:~$ sudo iptables -t nat -A PREROUTING -d 192.168.100.0/23 -j DNAT --to-destination=192.168.33.20
+vagrant@gateway:~$ sudo iptables -t nat -A PREROUTING -d 192.168.100.0/23 -j DNAT --to-destination=192.168.33.20
+
+>> LOG 기록되도록 설정
+vagrant@gateway:~$ sudo iptables -t nat -I PREROUTING -d 192.168.100.0/24 -j LOG --log-prefix='DNAT= '
+
+vagrant@webserver1:~$ ip route
+10.0.2.0/24 dev enp0s3 proto kernel scope link src 10.0.2.15 
+10.0.2.2 dev enp0s3 proto dhcp scope link src 10.0.2.15 metric 100 
+192.168.33.0/24 dev enp0s8 proto kernel scope link src 192.168.33.20 
+192.168.33.0/24 via 192.168.33.254 dev enp0s8 
+
+vagrant@websever2:~$ ip route
+10.0.2.0/24 dev enp0s3 proto kernel scope link src 10.0.2.15
+10.0.2.2 dev enp0s3 proto dhcp scope link src 10.0.2.15 metric 100
+192.168.33.0/24 dev enp0s8 proto kernel scope link src 192.168.33.10
+192.168.33.0/24 via 192.168.33.254 dev enp0s8
+
+web-server 기존에 연결된 10.0.0.2 끊어줘야함 apache2, nginx 다운받으려면 (natd int) 외부연결 필요해서
+apt-get install 한 후에 연결 지워주고 gateway랑 연결되도록 하면 됨!
+
+>> gateway 라우팅 기능 설정, 주석제거하면서 작동되도록 설정
+vagrant@gateway:~$ sudo vi /etc/sysctl.conf
+
+
+**vagrant@gataway:~$ sudo iptables -t nat -L -n -v --line-number
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+num   pkts bytes target     prot opt in     out     source               destination
+1        0     0 LOG        all  --  *      *       0.0.0.0/0            192.168.100.0/24     LOG flags 0 level 4 prefix "DNAT= "
+2        0     0 DNAT       all  --  *      *       0.0.0.0/0            192.168.100.0/23     to:192.168.33.10
+
+**순서 매우 중요함, 1번 먼저 적용되기 때문에 적용시킬 순서 잘 체크해야함!!
+
+
+# 내부/ 외부 네트워크가 격리된 상황에서 NAT 적용
+
+1) DNAT : 목적지 주소를 변경
+   외부 사용자가 내부 네트워크의 서버를 접속하여,
+   다양한 서비스를 이용할 수 있도록 하기 위해 적용
+
+2) SNAT : 출발지 주소를 변경
+   내부 서버 또는 외부에 존재하는 다양한 서비스(프로그램 설치, 업데이트등)을 이용해야 하는 경우 사용
+
+3) Masquerade NAT : 출발지 주소와 포트 정보 변경
+   내부 사용자들이 외부의 다양한 서비스를 이용해야하는 경우
+   내부/외부 격리가 되어 있는 환경이 아니더라도 주소변환이 필요한 경우 DNAT/SNAT 
+
+   app.drwoio / https://app.diagrams.net/ 사이트활용!
