@@ -1,0 +1,169 @@
+# 실습 내용
+  1. docker 이미지 pull은 dock.repo에서만 할 수 있도록 설정
+  2. gw2은 외부 사용자가 docker의 웹 컨테이너의 접근 가능하도록 DNAT 설정
+  3. gw1은 docker가 dock.repo을 통해 필요한 이미지를 제공 할 수 있도록 구성
+
+
+# vagrant@docker:~$ history
+    1  sudo ip route delete default via 10.0.2.2 dev enp0s3
+    2  ip route
+    7  docker pull registy
+    8  sudo vi /etc/hosts
+    9  docker pull repo.image.co.kr/registry
+   10  sudo vi /etc/docker/daemon.json > 인증서 발급 없이 dockerhub에 이미지 등록 가능
+   11  sudo systemctl restart docker
+   12  docker pull repo.image.co.kr/registry
+   13  docker pull repo.image.co.kr
+   14  docker pull repo.image.co.kr/registry
+   15  docker pull httpd
+   16  docker pull nginx
+   17  vi /etc/hosts
+   18  sudo vi /etc/hosts
+   19  docker pull nginx
+   20  docker rmi httpd
+   21  docker pull httpd
+   22  docker images
+   23  docker rmi  021283c8eb95 d140b777a247
+   24  docker pull httpd
+   25  sudo vi /etc/hosts
+        >> repo.image.co.kr ip 로 host 추가
+   26  docker pull httpd
+   27  docker pull repo.image.co.kr/nginx
+   28  docker run -d -p 80:80 --rm --name web repo.image.co.kr/nginx
+   29  docker ps
+   30  history
+
+
+# vagrant@docker-registry:~$ history
+    1  docker
+    2  docker pull registry
+    3  docker run -d --restart=always --name repository -e REGISTRY_HTTP_ADDR=0.0.0.0:80 -p 80:80 registry
+    4  docker images
+    5  cat vi /etc/docker/daemon.json
+    6  sudo vi /etc/apt/sources.list.d/docker.list
+    7  nslookup docker.io
+    8  docker pull nginx
+    9  docker tag nginx repo.image.co.kr/nginx:latest
+   10  docker push repo.image.co.kr/nginx
+
+ # vagrant@gateway1:~$ history
+    1  ip route
+    2  history
+   vagrant@gateway1:~$ ip route
+   default via 192.168.100.1 dev enp0s8 proto dhcp src 192.168.101.22 metric 100
+   10.0.2.0/24 dev enp0s3 proto kernel scope link src 10.0.2.15
+   10.0.2.2 dev enp0s3 proto dhcp scope link src 10.0.2.15 metric 100
+   192.168.100.0/23 dev enp0s8 proto kernel scope link src 192.168.101.22
+   192.168.100.1 dev enp0s8 proto dhcp scope link src 192.168.101.22 metric 100
+   192.168.123.0/24 dev enp0s9 proto kernel scope link src 192.168.123.254
+
+# vagrant@gateway2:~$ history
+    1  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 18.210.197.188 -j LOG --log-preficx='[DROP] '
+    2  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 18.210.197.188 -j LOG --log-prefix='[DROP] '
+    3  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 18.210.197.188 -j DROP
+    4  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 18.206.20.10 -j LOG --log-prefix='[DROP] '
+    5  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 18.206.20.10 -j DROP
+    6  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 3.228.146.75 -j LOG --log-prefix='[DROP] '
+    7  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 3.228.146.75 -j DROP
+    8  sudo tail -f /var/log/kern.log
+    9  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 104.18.125.25 -j LOG --log-prefix='[DROP] '
+   10  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 104.18.125.25 -j DROP
+   11  sudo tail -f /var/log/kern.log
+   12  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 104.18.123.25 -j DROP
+   13  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 44.205.64.79 -j DROP
+   14  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 34.206.20.10 -j DROP
+   15  sudo iptables -t filter -A FORWARD -s 192.168.223.20 -d 34.205.13.154 -j DROP
+        >> docker는 repo에서만 이미지 다운받을 수 있게 도커허브 ip 주소 막아둠
+   16  sudo tail -f /var/log/kern.log
+   17  sudo iptables -t nat -A PREROUTING -i enp0s9 -d 192.168.100.198 -p tcp -dport 80 -j DNAT --to-destination=192.168.223.20:80
+   18  sudo iptables -t nat -A PREROUTING -i enp0s9 -d 192.168.100.198 -p tcp --dport 80 -j DNAT --to-destination=192.168.223.20:80
+     >>DNAT 설정해서 게이트웨이 주소로 들어온 요청을 도커로 연결(컨데이터), 컨테이너의 nginx 이미지를 게이트웨이 주소 열리도록 요청가능함
+
+# KVM overlay
+1.vagrant filter 수정
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/focal64"
+
+  config.vm.define "vmx1" do |vmx1|
+    vmx1.vm.hostname = "vmx1"
+    vmx1.vm.provider "virtualbox" do |vb|
+    vb.name = "vmx1"
+    vb.cpus = 4
+    vb.memory = 8192
+    vb.customize [ "modifyvm", :id, "--nested-hw-virt", "on"]
+    end
+    vmx1.vm.network "private_network", ip: "192.168.99.9", virtualbox__intnet: true  
+    vmx1.vm.provision "shell", inline: <<-SCRIPT
+     sudo apt-get update -y
+     sudo apt-get install -y qemu qume-kvm libvirt-daemon \
+       libvirt-clinent bridge-utils virt-manager
+     sudo usermod -a -G kvm vagrant
+     sudo usermod -a -G libvirt vagrant
+     wget http://dl-cdn.alpinelinux.org/alpine/v3.8/releases/x86_64/alpine-virt-3.8.5-x86_64.iso
+     sudo mv alpine-virt-3.8.5-x86_64.iso /var/lib/libvirt/images/
+    SCRIPT
+
+수정 후 카톡 READ.ME 파일 
+KVM 설치 login은 root 로그인 후
+localhost:~# setup-alpine
+키보드 설정 kr, kr-kr104
+나머지 기본 설정
+시간만 [UTC] Asia/Seoul
+
+Enter mirror number (1-0) or URL to add (or r/f/e/done) [f]: e 후
+  /etc/apk/repositories 파일에 다음의 리포지토리 경로를 추가
+  http://dl-cdn.alpinelinux.org/alpine/v3.8/main
+  http://dl-cdn.alpinelinux.org/alpine/v3.8/community
+   > 추가 후 저장 wq
+  
+    
+Which NTP client to run? 시간 동기화 / 기본설정으로
+Which disk(s) would you like to use? (or '?' for help or 'none') [none] vda
+The following disk is selected:
+  vda   (10.7 GB 0x1af4 )
+How would you like to use it? ('sys', 'data', 'lvm' or '?' for help) [?] sys
+완료 후 reboot 기다리면 됨! > 가상머신 설치했음
+
+완전히꼬임 > 멈추고 다시 시작하면 됨
+실패하면 다시 setup 하면 됨
+
+vagrant@vmx1:~$ virsh list --all
+ Id   Name      State
+-------------------------
+ 1    alpine1   running
+ 3    alpine2   running
+
+vagrant@vmx1:~$ virsh domaifaddr apline1
+error: unknown command: 'domaifaddr'
+vagrant@vmx1:~$ virsh domainfaddr apline1
+error: unknown command: 'domainfaddr'
+vagrant@vmx1:~$ virsh domifaddr apline1
+error: failed to get domain 'apline1'
+
+vagrant@vmx1:~$ virsh domifaddr alpine1
+ Name       MAC address          Protocol     Address
+-------------------------------------------------------------------------------
+ vnet0      52:54:00:17:4e:bd    ipv4         192.168.122.242/24
+
+vagrant@vmx1:~$ virsh domifaddr alpine2
+ Name       MAC address          Protocol     Address
+-------------------------------------------------------------------------------
+
+localhost:~# ifconfig
+eth0      Link encap:Ethernet  HWaddr 52:54:00:17:4E:BD  
+          inet addr:192.168.122.242  Bcast:192.168.122.255  Mask:255.255.255.0
+          inet6 addr: fe80::5054:ff:fe17:4ebd/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:127 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:177 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:10564 (10.3 KiB)  TX bytes:14601 (14.2 KiB)
+
+lo        Link encap:Local Loopback  
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:65536  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
