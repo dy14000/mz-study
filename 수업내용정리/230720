@@ -1,0 +1,38 @@
+기본 라우트 설정을 빼고, NAT 구성 넣어서 내부서버가 외부로 연결되도록
+필요한 업데이트 패킷설치 가능하도록
+
+vagrant@gateway:~$ sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl/conf
+원본내용 > 바꿀내용 해당 파일 
+vi 안쓰고 변경(파일 해당 위치를 알때)
+vagrant@gateway:~$ sudo sysctl -p
+net.ipv4.ip_forward = 1 #적용
+
+vagrant@gateway:~$ sudo ip route del default via 10.0.2.2 dev enp0s3
+vagrant@gateway:~$ sudo iptables -t nat -A POSTROUTING -s 192.168.0.0/16 -o enp0s8 -j MASQUERADE
+
+vagrant@gateway:~$ sudo iptables -t nat -L -n -v
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 1 packets, 76 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain POSTROUTING (policy ACCEPT 1 packets, 76 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+vagrant@nginx-LB:~$ sudo ip route add default via 192.168.123.254
+vagrant@nginx-LB:~$ ping -c 2 8.8.8.8
+
+
+#
+내PC 
+이더넷 어뎁터2 host only1
+
+이더넷 어뎁터3 host only2
+
+이더넷 어뎁터4 host only3
+
+vb.customize ["modifyvm", id, "--nested-hw
