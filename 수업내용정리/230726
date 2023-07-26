@@ -1,0 +1,105 @@
+# helm
+ https://helm.sh/docs/intro/install/
+ > 쿠버네티스에서 사용할 앱들을 손 쉽게 다운 받을 수 있는 툴 / 차트(=패키지)
+
+# dashboard 
+
+설치방법은 호
+vagrant@kube-controller:~$ kubectl create -f kube-dashboard-account.yaml
+vagrant@kube-controller:~$ kubectl apply -f kube-dashboard-admin.yaml
+vagrant@kube-controller:~$ kubectl -n kubernetes-dashboard create token kubernetes-dashboard
+
+token 받아서, localhost:8443으로 해서 로그인 들어갈수 있음!
+
+# 동작하고 있는것 확인
+   2  watch -n 1 "kubectl get nodes && kubectl get pods --all-namespaces"
+
+# pod 생성,삭제 (파일, 디렉토리로 가능함)
+  110  kubectl apply -f /vagrant/kube_yaml/01_single_pod.yaml
+  111  kubectl delete -f /vagrant/kube_yaml/01_single_pod.yaml
+  112  kubectl apply -f /vagrant/kube_yaml/01_single_pod.yaml
+
+# pod 상세정보 확인
+  138  kubectl describe pod replicaset
+
+# 버전관리시 활용
+  145  kubectl rollout history deployment deploy
+  146  kubectl rollout history deployment deploy --revision=1
+  147  kubectl rollout history deployment deploy --revision=2
+
+  160  kubectl get -f kube.yaml|/vagrant/ -o yaml
+  162  watch -n 1 "kubectl get nodes && kubectl get pods --show-labels"
+  163  kubectl describe pod web-pod-nginx
+  168  kubectl exec -it web-pod-nginx -c alpine -- sh
+  169  watch -n 1 "kubectl get nodes && kubectl get pods --show-labels"
+  170  watch -n 1 "kubectl get nodes && kubectl get pods --all-namaspaces"
+  172  watch -n 1 "kubectl get nodes && kubectl get rs --show-labels && kubectl get pods --show-labels"
+
+  175  watch -n 1 "kubectl get nodes && echo '\n' && kubectl get deployment --show-labels && echo '\n' && kubectl  get rs --show-labels && echo '\n' && kubectl get pods --show-labels"
+
+# 대쉬보드 설치과정 (helm 툴 활용)
+  180  sudo apt-get install helm
+  181  helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+  182  helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard --create-namespace --namespace kubernetes-dashboard
+
+  # 포트 포워딩(vagrant에서도 게스트,호스트 포트지정할수 있음)
+  188  kubectl -n kubernetes-dashboard port-forward --address 0.0.0.0 svc/kubernetes-dashboard-nginx-controller 8443:443 >> kube-dashboard.log &
+  8443해놓고, 확인은 웹으로 가서 https://localhost:8443 하면 대쉬보드 나옴
+  token으로 로그인 해야해서 token 발급 받아야함
+  #  https://github.com/kubernetes/dashboard/blob/master/docs/user/access-control/creating-sample-user.md 
+  
+  191  cat kube-dashboard.log
+  193  vi kube-dashboard-account.yaml
+  194  kubectl create -f kube-dashboard-account.yaml
+  195  vi kube-dashboard-admin.yaml
+  196  kubectl apply -f kube-dashboard-admin.yaml
+  197  kubectl -n kubernetes-dashboard create token kubernetes-dashboard
+  kubectl -n kubernetes-dashboard create token admin > 
+  오류) name 잘못기입해서 token으로 로그인 했지만 관리자 권한 없었음
+  다시 관리자 네임 확인하고 token 새로 발급받아서 로그인하니 관리자페이지로 잘 뜸
+
+  vi kube-dashboard-admin.yaml
+
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+  name: admin
+  namespace: kubernetes-dashboard
+---
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRoleBinding
+  metadata:
+    name: admin
+    namespace: kubernetes-dashboard
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: cluster-admin
+  subjects:
+   - kind: ServiceAccount
+    name: admin
+    namespace: kubernetes-dashboard
+
+  파일 하나에 다 넣어둠
+
+  # Service 
+   1)ClusterIP
+   클러스터 내부에서 사용하는 프록시 / 클러스터 내부에서만 사용할수있는 주소로 씀
+
+   2)NodePort
+    외부에서 접근 가능하도록 만들어줌 
+    모든 노드에 동일한 포트를 사용하게 만들어줘서 어떤 노드를 통해서 접근하더라도 내부 pod까지 연결되도록 만들어줌
+
+    문제) service가 있는 node가 안되면, 그 이후로 안넘어감
+    그래서 로드밸런서 쓰면 어느정도 해결됨 
+     (+) 로드밸런서에서 자체 health check
+         기능이 있어서 포트 고장난곳이 있으면 다른곳으로 보내줌
+
+    3)LoadBalancer
+     
+
+  kubectl exec nginx-pod -- curl -s http://cluster-service 로 확인가능
+
+  
+
+
