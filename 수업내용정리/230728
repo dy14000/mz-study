@@ -1,0 +1,213 @@
+# 쿠버네티스 볼륨 생성
+vloumMounts:
+
+노드의 파일시스템과 파드가 마운트되는 형태
+파드가 생성된 노드에 마운트가 이루어짐 다른 노드에는 마운트되어있지 않음
+
+    - name: host-volume
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: host-volume
+    hostPath:
+      path: /tmp/pad
+      type: DirectoryOrCreate #마운트 대상 지정, 실제로 존재해야함
+       종류) Directory, File, FileOrCreat socket BlockStorage
+ 
+모든 로그에 로드수집기들을 배치할때 볼륨연결함(수집용 파드)
+직접 연결하기 때문에 보안상의 문제도 체크해야함
+
+daemonset 컨트롤러
+pod, deployment, replicaset 등..
+모든 노드에 파드 생성 해줌 노드에서 발생된 로그 정보를 수집하는 용도로 사용
+
+kubelet 계정이 가지는 소유권 정보로 dir,file 생성됨
+dir 0755 / file 0644 > 기본권한
+
+볼륨 연결해고, 
+  volumes:
+  - name: host-volume
+    hostPath:
+      path: /tmp/pad > 연결된 볼륨의 위치
+      type: DirectoryOrCreate
+vagrant@kube-controller:~$ kubectl describe pod vol-pod
+어디로 연결됐는지 확인후
+
+vagrant@kube-controller:~$ kubectl exec vol-pod -- curl localhost 확인
+: 볼륨 연결됐으면 tmp/pad 에서 작업한 파일이나 dir를 ctrl에서 확인 가능
+
+vagrant@nginxLB:/mnt/nfs_share1$ sudo apt install -y nfs-kernel-server
+ >> 서버 역활할 곳에 nfs-kernel 설치하고 
+
+ 나머지 계정 sudo apt install -y nfs-common
+
+ 공유할 볼륨파일 생성하고 소유권,권한 변경
+vagrant@nginxLB:~$ sudo mkdir -p /mnt/nfs_share1
+vagrant@nginxLB:~$ sudo mkdir -p /mnt/nfs_share2
+vagrant@nginxLB:/$ sudo chown nobody:nogroup /mnt/nfs_share1
+vagrant@nginxLB:/$ sudo chown nobody:nogroup /mnt/nfs_share2
+vagrant@nginxLB:/$ sudo chmod 777 /mnt/nfs_share1
+vagrant@nginxLB:/$ sudo chmod 777 /mnt/nfs_share2
+
+# volume pod 생성
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vol-pod
+  labels:
+    name: vol-pod
+spec:
+  containers:
+  - name: vol-pod
+    image: nginx
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    volumeMounts:
+    - name: nfs-volume
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: nfs-volume
+    nfs:
+      path: /mnt/nfs_share1
+      server: 192.168.10.14 >> nfs server ip 넣으면 됨
+  imagePullSecrets:
+  - name: docker-pull-secret
+
+추가)
+vagrant@nginxLB:/$ sudo vi /etc/exports
+/mnt/nfs_share1    *(rw,sync,no_subtree_check)
+/mnt/nfs_share2    *(rw,sync,no_subtree_check)
+vagrant@nginxLB:/$ sudo exportfs -a
+vagrant@nginxLB:/$ sudo systemctl restart nfs-kernel-server
+vagrant@nginxLB:/$ sudo exportfs
+/mnt/nfs_share1
+                <world>
+/mnt/nfs_share2
+                <world>
+
+yaml 파일이 있는곳에 apply! 하거나 절대경로 기입하면 됨
+
+볼륨파일에 여러 웹 템플릿 넣고 가동 가능함
+클라우드 활용하면 더 다양한 볼륨 가능함
+
+
+# 퍼시스턴스 볼륨 pv
+ : 관리자가 미리 생성(프로비저닝)한 클러스터의 스토리지
+
+# 퍼시스턴스 볼륨 클레임 pvc
+ : 관리자가 미리 생성한 볼륨을 사용자가 요청하기 위해 사용하는 객체
+ 사용자는 원하는 용량,파일의 볼륨을 신청할수 있으며,
+ 해당 퍼시스턴스 볼륨이 존재하면 마운트되서 사용 가능함 
+ 해당 퍼시스턴스 볼륨이 없으면, 구성에 따라서 동적프로비저닝으로
+ 마운트되어 사용되거나 사용하지 못할수도 있다.
+
+ 동적 프로비저닝 : 없던걸 자동생성
+ 정적 프로비저닝: 미리 생성한걸로
+
+ 만들어졌는지 확인 
+ 
+ kubectl get pv or pvc
+
+ persistence cliam > persistence > pod 순으로 !
+
+# pod.yaml
+ apiVersion: v1
+kind: Pod
+metadata:
+  name: vol-pod
+  labels:
+    name: vol-pod
+spec:
+  containers:
+  - name: vol-pod
+    image: nginx
+    resources:
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+    volumeMounts:
+    - name: nfs-volume
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: nfs-volume
+    persistentVolumeClaim:
+      claimName: nfs-pvc1
+  imagePullSecrets:
+  - name: docker-pull-secret
+
+#persistence.yaml >> pv 생성
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv1
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - nfsvers=4.1
+  nfs:
+    path: /mnt/nfs_share1
+    server: 192.168.10.14
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv2
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - nfsvers=4.1
+  nfs:
+    path: /mnt/nfs_share2
+    server: 192.168.10.14
+
+# persistence_claim >> pvc 생성
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc1
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  volumeName: nfs-pv1
+  storageClassName: ""
+
+  삭제중 오류 떠서 terminating 시
+
+kubectl patch pv <pv_name> -p '{"metadata": {"finalizers": null}}'
+kubectl delete pv <pv_name> --grace-period=0 --force >> 강제삭제
+PVC를 패치하여 "파이널라이저" 설정을 null로 설정해야 하며, 
+이렇게 하면 노드에서 최종 마운트 해제가 가능하며 PVC를 삭제할 수 있습니다.
+
+1. 삭제되지 않은 Pod들을 확인하고, 해당 Pod들을 삭제하거나 다른 PVC로 마운트를 변경합니다.
+2. 클러스터의 상태를 확인하여 부하가 높거나 자원이 부족한지 여부를 확인
+3. 스토리지 백엔드와의 연결 상태를 확인하고, 문제가 발생하면 해당 문제를 해결
+4. PVC 삭제를 강제로 진행해야 할 경우, kubectl delete pvc <pvc-name> --grace-period=0 --force와 같이 강제 삭제 옵션을 사용
+
+# daemonset
+fluentd , fluent-bit(경량버전)
+볼륨 연결해서 log 수집하고 외부로 보냄
+elastic search , mongoDB
+로그를 외부 저장하는 주요 이점
+1.데이터보존과 재생산성
+2. 스케일링 용이성
+3. 중앙 집중화와 모니터링
+4. 데이터분석
+
+
+vagrant@kube-controller:/vagrant/kube_yaml$ kubectl delete -f ./
+service "cluster-service" deleted
