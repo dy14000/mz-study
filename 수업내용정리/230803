@@ -1,0 +1,116 @@
+# role / rolebinding
+- 특정 네임스페이스에 존재하는 리소스에 대한 작업권한 부여
+- 관리하고자 하는 리소스가 존재하고자 하는 곳에
+
+# clusterrole / clusterrolebinding
+- 모든 네임스페이스에 존재하는 리소스에 대한 작업 권한 부여
+
+configmap > pod 로 
+kubectl exec config-pod -- env
+
+      - name: ENV_NAME
+        value: "env value"
+      - name: KEY  > 값만 들고 올수  있어서 환경변수 하나씩 직접 기입
+        valueFrom:
+          configMapKeyRef:
+            name: config1  > 연결한 configmap 이름
+            key: key >KEY의 value
+      - name: NAME
+        valueFrom:
+          configMapKeyRef:
+            name: config1
+            key: name      # name의 환경변수를 configmap에 name값으로 환경변수 설정
+  imagePullSecrets:
+  - name: docker-pull-secret
+
+
+# secret
+
+ date : mypassword로 하면 base64로 변경하라고 함
+ base64 >> EOF
+ mypassword
+ EOF 하면 base64로 바꿔서 알려줌
+ (+) 귀찮을때
+  stringData:
+  password: mypassword 하면 바로 바꿔서 적용해줌
+
+  pod에
+      env:
+    - name: PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: secret-config
+          key: password
+  imagePullSecrets:
+  - name: docker-pull-secret
+  환경변수 넣어줌
+
+      env:
+    - name: PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: secret-config
+          key: password
+    envFrom:
+    - secretRef:
+        name: secret-config
+    volumeMounts:
+    - name: secret-volume
+      mountPath: /config
+      readOnly: true
+  volumes:
+  - name: secret-volume
+    secret:
+      secretName: secret-config
+  imagePullSecrets:
+  - name: docker-pull-secret
+(+)
+
+# ssl 인증서 넣기
+nginx에 derault.conf
+
+  default.conf: |
+    server {
+        listen       443 ssl;
+        server_name  localhost;
+
+        #access_log  /var/log/nginx/host.access.log  main;
+        
+        ssl_certificate /etc/nginx/ssl/localhost.crt;
+        ssl_certificate_key /etc/nginx/ssl/localhost.key;
+        ssl_portocols TLSv1.1 TLSv1.2 TLSv1.3
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+
+넣어주면 됨
+
+인증서 발급
+$ openssl req -x509 -nodes -days 365 -newkey rsa:4096 -keyout localhost.key -out localhost.crt
+
+# pod 생성
+metadata: Pod의 이름과 라벨을 설정합니다.
+
+name: Pod의 이름을 "nginx-ssl-tls-pod"로 설정합니다.
+labels: Pod에 라벨을 부여합니다. 여기서 "name" 라벨을 "nginx-ssl-tls-pod"로 설정합니다.
+spec: Pod의 스펙을 정의합니다.
+
+containers: Pod 내에서 실행될 컨테이너를 정의합니다. 여기서는 하나의 컨테이너를 정의하고 있습니다.
+name: 컨테이너의 이름을 "nginx-ssl-tls-pod"로 설정합니다.
+image: 컨테이너에서 사용할 Docker 이미지로 "nginx:latest"를 사용합니다.
+resources: 컨테이너의 리소스 요구 사항을 설정합니다. 여기서는 메모리를 최대 128MB, CPU를 최대 500m (0.5 CPU 코어)로 제한하고 있습니다.
+ports: 컨테이너의 443 포트를 외부로 노출하도록 설정합니다. (SSL/TLS 포트)
+volumeMounts: 컨테이너에서 사용할 볼륨을 설정합니다. 여기서는 두 개의 볼륨을 마운트하고 있습니다.
+nginx-config: ConfigMap에서 Nginx 설정 파일을 마운트합니다.
+nginx-ssl-tls: Secret에서 SSL/TLS 인증서를 마운트합니다.
+volumes: 컨테이너에 마운트될 볼륨을 정의합니다.
+
+nginx-config: ConfigMap "nginx-config-map"을 마운트하는 볼륨입니다.
+nginx-ssl-tls: Secret "nginx-ssl-tls-secret"을 마운트하는 볼륨입니다.
+imagePullSecrets: 컨테이너 이미지를 가져오기 위해 사용할 Docker 레지스트리 인증 정보를 지정합니다. 여기서는 "docker-pull-secret"이라는 이름의 이미지 풀 시크릿을 사용하고 있습니다.
+
+이렇게 설정된 YAML 파일을 사용하여 Pod를 생성하면 Nginx 컨테이너가 실행되고, Nginx의 설정 파일은 ConfigMap에서, 
+SSL/TLS 인증서는 Secret에서 제공될 것입니다.
+
