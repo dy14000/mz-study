@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: myjob
+spec:
+  ttlSecondsAfterFinished: 100 #초
+  template:
+    spec:
+      containers:
+      - name: pi
+        image: perl
+        command: ["perl",  "-Mbignum=bpi", "-wle", "print bpi(2000)"]
+      restartPolicy: Never
+
+# 컨테이너 종료후에/ 보통은 always(다시시작)
+onFailure : 실패하면 다시 시작
+
+#job / cronjob
+
+#http 또는 datebase처럼 지속적으로 서비스가 동작하는 형태가 아닌
+# 필요할 때만 실행되고 종료되어야하는 형태의 작업이 필요할때 사용
+
+# 서비스 또는 서버의 로그 정보를 수집하고 로그 서버에 보내는 작업을 할때
+# 이 과정에서 계속적으로 로그수집을 위해 동작할 필요가 없을때 사용
+
+# 주기적으로 동작해야하는 경우 Cronjob을 씀
+#job / cronjob으로 수행할수 있는 작업 예시
+
+1. 주기적인 로그 수집 및 전송
+2. 주기적인 데이터베이스 백업
+3. 프로그램의 테스트를 위한 소스코드 다운로드 및 실행
+
+kubectl --namespace monitoring port-forward --address 0.0.0.0 svc/grafana 3000 > grafana.log &
+포트포워딩인데, 백그라운드 log로 보내줌
+
+#
+kind: cronJob
+metadata:
+  name: mycronjob
+spec:
+  schedule: "분 시 일 월 요일" > "* * * * *" (1분간격)
+   "10 * * * *" > 00시 10분 1시 10분 2시 10분 10분만 고정으로
+   */10 10분 간격으로 생성
+   "*0 7,12,23 * * 1-5" 1-5 : 월~금 (0부터 일요일)
+  jobTemplate:
+    spec:
+      template:
+        containers:
+        - name: cronjob-container
+          image: alpine
+          command: ["/bin/sh",  "-c", "echo 'Job Running'"]
+        restartPolicy: OnFailure
+
+프로메타우스로 수집된 정보 > 그라파나 통해서 시각화
+
+# HPA (horizontal pod autoscaler)
+: 자동으로 스케일이 증감함
+
+언제 증가하는지? 기준은 CPU사용량에 따라서 증감 결정
+평균 사용량 
+
