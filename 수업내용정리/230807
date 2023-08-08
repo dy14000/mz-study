@@ -25,7 +25,7 @@ sudo ss -tunap | grep ":8080"
 
 docker container 안에 jenkins 설치
 8080 포트로 해서 192.168.10.14:8080 > jenkins 설치한 계정(os)!
-
+docker exec -t jenkins /bin/bash -c "cat /var/jenkins_home/secrets/initialAdminPassword" > 초기 비밀번호 컨테이너안에서 확인!!!!!
 ~$ docker exec -t jenkins /bin/bash -c " cat  /var/jenkins_home/workspace/project1/result"
 Hello
 
