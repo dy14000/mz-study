@@ -1,0 +1,110 @@
+$ docker run -it -p 8080:8080 --name jenkins -v jenkins-volume:/var/jenkins_home/ 
+\ -v /var/run/docker.sock:/var/run/docker.sock -v $(wihch docker):/usr/bin/docker
+jenkins/jenkins:2.387.2-lts
+
+docker 컨테이너 내부에도 docker.sock이 있고,
+로컬 호스트에도 이미 docker가 설치 되어 있기 때문에 docker.sock 존재함
+두개를 연결해서 사용
+
+
+Dockerfile로 빌드하고 싶을때 host 에서 빌드하면 jenkins내에서도 연결됨
+ -v $(which docker):/usr/bin/docker > 명령어도 같이 마운트 시킴
+ which docker 도커 명령어가 어디있는지 찾고 마운트
+
+ # credentialsID 
+- 메일, dockerhub는 자기 계정
+- git은 token으로 계정 확인하기 때문에 username은 아무거나 해도 상관없음
+
+# push : docker 분기에서 push 했을때 jenkins 자동빌드해줌
+# webhook 통해서 > ngrok 통해서 공인 ip로 받아서 git 연결하기때문에 domain주소 변경
+# git repo가서 다시 수정해야함 
+# credential: token 재발급 시 수정해줘야함
+# checkout > Build > Test > Package
+
+(+) Ubuntu에 직접 설치 시 : jenkins, docker 설치만 해두면 됨
+볼륨 사용해서 마운트 시켜줄 필요 없음
+
+pipeline {
+    agent any
+    triggers {
+        githubPush()
+    }
+    options {
+        timestamps()
+    }
+    stages {
+        stage('Github Repository Clone & Checkout') {
+            steps {
+                git branch: 'docker',
+                    url: 'https://github.com/dy14000/jenkins-cicd.git',
+                    credentialsId: 'jenkins-cicd-github'
+            }
+        }
+        stage('Docker Build') {
+            steps {
+                script {
+                    docker.build("") // plugin > docker pilpeline 설치시 사용가능함함
+                    docker build <계정명>/<리포지토리명|이미지명>:<태그|버전>
+                }
+            }
+        }
+    }
+    post{
+        cleanup {
+        emailext subject: '[$JOB_NAME - $BUILD_DISPLAY_NAME] - 작업 결과',
+                 to: 'quawa9@naver.com', //받는사람
+                 body: '$JOB_NAME\n\n작업이 수행되었습니다.\n\n$BUILD_URL'
+            cleanWs() // 작업영역 삭제
+        }
+    }
+}
+
+# 권한 확인
+echo $(stat -c %g /var/run/docker.sock) 하면 그룹번호 나옴!!!!
+
+pipeline {
+    agent any
+    triggers {
+        githubPush()
+    }
+    options {
+        timestamps()
+    }
+    stages {
+        stage('Github Repository Clone & Checkout') {
+            steps {
+                git branch: 'docker',
+                    url: 'https://github.com/dy14000/jenkins-cicd.git',
+                    credentialsId: 'jenkins-cicd-github'
+            }
+        }
+        stage('Docker Build') {
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub' ) { 
+                    docker.build('dy14000/jenkins-test', '--no0c'./docker') // plugin > docker pilpeline 설치시 사용가능함함
+                   // docker build <계정명>/<리포지토리명|이미지명>:<태그|버전>
+                    }
+                }
+            }
+        }
+        stage('Docker Image Push') {
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub') {  
+                        def img = docker.image('dy14000/jenkins-test')
+                        img.push('latest')
+                        img.push('0.1')
+                    }
+                }
+            }
+        }
+    }
+    post {
+        cleanup {
+        emailext subject: '$DEFAULT_SUBJECT',
+                 to: 'quawa9@naver.com', //받는사람
+                 body: '$DEFUAILT_CONTENT'
+        }// cleanWs() 작업영역 삭제
+    }
+}

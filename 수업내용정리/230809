@@ -1,0 +1,60 @@
+python3 - flask
+
+1. flask 소스 코드(Github에 저장)
+2. 소스 코드를 실행할 docker container 사용
+3. docker container에 flask를 실행할수 있도록 라이브러리 설치
+4. 라이브러리 설치 후에는 실행 및 접속 테스트
+5. 접속 테스트 curl로 localhost:5000(flask에서 기본적으로 열리는 포트)로 연결 확인
+
+java - spring-boot
+
+# python 
+ pip 명령어로 패키지/라이브러리 설치
+ 설치한 패키지 라이브러리 목록을 requirements.txt 파일로 만들수 있음
+
+ #jenkins - agent
+ 도커 컨테이너로 agent 만들시 네트워크 ip나 domain 잘 체크
+ 컨테이너 이름으로 DNS 작업이 필요함
+
+ 쿠버네티스 - 서비스
+ Master : Nodeport(외부까지)
+ Slave: ClusterIP(내부통신)
+
+ docker github kubernetes jenkins 
+  온프레미스 환경에서 CICD 파이프라인 환경 구성
+   1.Github jenkins 사용해서 docker image / program code 빌드 및 배포 시스템 구성
+   2. github jenkins docker사용해서 1번과 동일한 시스템 구현
+      docker 는 사설 repo 구성하여 응용
+   3. 2번에 쿠버네티스까지 적용하여 동일한 시스템 구성
+
+# jenkins SonarQube
+   정적 분석 
+   코드구문, 변수명,함수명, 보안 취약점 등 분석하는 도구 > 코드만 보고 분석한다고 보면됨
+
+ (+)동적분석 > 작성한 코드를 실행한 결과에 따라서 분석
+
+ token jenkins랑 연동해서 사용.
+
+ SonarQube scanner jenkins plugin 설치해야 사용 가능함
+
+sona sceret
+add에서 sceret abcdefg 넣고 
+SonarQube webhook 설정하는곳 sceret 넣었던 abcdefg로 넣으면 됨~
+
+SonarQube 결과는 webhook통해서 jenkins로 보내서 token 필요한것
+
+ 
+ stage('Testing & QC') {
+    steps {
+        script {
+        withSonarQubeEnv {
+            sh "./mvnw verify sonar:sonar -Dsonar.java.source=17 
+            -Dsonar.projectKey=<ProjectKey> -Dsonar.sources=src/main/ -Dsonar.tests=src/test/ 
+            -Dsonar.java.binaries=target"
+        }
+    }
+    timeout(time: 1, unit: 'MINUTES') {
+    waitForQualityGate abortPipeline: true
+        }
+    }
+ }
