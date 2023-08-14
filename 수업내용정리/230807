@@ -1,0 +1,52 @@
+# Jenkins : 자동화 도구
+코드의 빌드, 테스트 ,버전, 배포 까지
+
+#폭포수 모델
+상위 단계에서 이미 진행된 부분은 하위단계에서 올라가지않도록,
+각 단계별 문서 산출됨 (계획서, 설계사양서 등..)
+반복적엔 테스트, 베포작업이 이뤄지지 않음 > CICD(자동화) 프로그램이 필요하지 않았음
+
+#애자일 모델
+프로그램 개발에 주기적인 베포, 리뉴얼이 이뤄지기 되면서 나옴
+
+# 스크럼 프레임 워크
+스프린트 > 지속적으로 개발을 진행하는것
+
+# CI/CD 프로세스
+기존에 빌드(개발), 운영팀이 나눠져있었는데 CI/CD 통해서 자동으로 이뤄짐
+테스트는 자동으로 할수 있긴 하지만 수동으로 하는게 나음 사람의 개입이 빠지고, 그외에 자동화 시스템
+
+
+# 설치
+설치 환경은 다양하게 제공, java로 만들어진 프로그램이라, 자바로 직접 받아서 사요할수 있도록 제공함
+
+sudo systemctl disable jenkins > 비활성화
+sudo ss -tunap | grep ":8080"
+
+docker container 안에 jenkins 설치
+8080 포트로 해서 192.168.10.14:8080 > jenkins 설치한 계정(os)!
+docker exec -t jenkins /bin/bash -c "cat /var/jenkins_home/secrets/initialAdminPassword" > 초기 비밀번호 컨테이너안에서 확인!!!!!
+~$ docker exec -t jenkins /bin/bash -c " cat  /var/jenkins_home/workspace/project1/result"
+Hello
+
+$ sudo ss -tuna 포트번호 확인하면 됨
+
+
+# jenkins
+- 알림 이메일 등록
+- git 연결
+ jenkins(사설) github(공인) 외부에서 사설주소까지 라우팅 안시켜줘서, 바로 연결이 안됨
+ ngrok을 사용하면 jenkins랑 ngrok 연결되면, 터널링 형식으로 연결됨
+ ngiok에서는 터널 제공, domain형식으로 연결시켜줘서 github에 domain으로 연결해주면 포워딩되서 연결됨
+
+
+ # https://1249-218-235-89-202.ngrok-free.app -> http://localhost:8080   
+
+  설치 후 ngrok http 8080
+
+  #  Pipeline 구성
+  1) step
+  2) stage
+   스크립트 만들어서 사용해야함(어려움!) : Groovy 사용
+   
+
