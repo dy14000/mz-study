@@ -1,0 +1,82 @@
+pod 동장 flow
+
+pod 생성시 schduler가 어느 node에 배치할지 : pending
+만들어지면 running
+
+pod 구성 패턴의 종류
+
+< sidecar >
+
+con - web 서버 (로그생성)
+다른 con가 받아서 로그 저장하고 분석
+
+< adapter >
+container - web
+외부에 모니터 정보가 들어있는 정보를
+apdapter받아서 web server에게 전달
+>> 외부에 데이터를 내부로 가지고 와서 전달
+
+< ambassador >
+web-server  LB 역활 컨테이너가 캐쉬로 보내줌
+>>내부에서 생성된 것들을 외부로 전달
+
+쿠버네티스 클러스터 구성
+-HA cluster 하나의 mater가 죽어도 다른 mater 통해서 가능하도록 / 홀수로
+mater가 3대면 1대인거처럼 LB가 필요함 mater 3개 중에 하나랑 연결해서 운영
+
+etcd가 항상 동기화가 되서 동일데이터가 있어야함
+
+wn는 LB랑 통신되도록. LB는 master에게 전달
+
+HOW?
+1. all system - runtime docker install
+ # kubernets는 CR을 통해서 가능
+- wn에 각각 docker 설치
+
+2. control plane . worker node - kubeadm 설치
+
+3. LB(nginx 사용) 구성
+
+4. HA 클러스터 구성
+1. master1 kubeadm init 명령 초기화 - LB 등록
+2. master2 
+
+< master1 > 
+/etc/host 
+master1, 2, 3, wn1,2 LB ip 등록
+각 서버간의 네트워크가 통신이 되어야함
+
+ping으로 했을때 다 통신이 되어야함!
+
+< kubernets 홈페이지! > 
+1. container runtime : docker로 설치
+
+2. 쿠버네티스 통해서 port 연결해줘야하는데. 방화벽을 그냥 해재
+   swap 해제
+
+3. ip table see bridge 확인되도록 설정
+
+4. LB 시스템 6443 포트로
+nginx 설치해서 LB 구현
+컨테이너 기반으로 해줄꺼라서
+mkdir /etc/nginx/nginx.config
+파일로 해서, 로드밸런서 구성
+> master 1,2,3 넣는다
+
+컨테이너 실행
+docker run --name proxy -v /etc/nginx/nginx.config:/etc/nginx/nginx.config:ro
+--restart=always -p 6443:6443 -d nginx 
+curl <lb ip 주소>로 확인해보면 됨
+
+5. HA 클러스터 구현
+1. master 1,2,3 중에 하나 선택하고 LB 등록
+    kubeadm init --contrlo-plane-endpoint "lb:6443" --upload-certs
+                                          <lb 장비등록> 
+
+mster1에서만 실행
+나머지 2,3 연결하려면, 인증서랑 token 필요함
+처음에 master1에서 설치하면 인증서 token 줌 file에 넣어두고 
+하면됨~
+
+CNI 설치해야함!
+홈페이지에서 다 나와있음!
